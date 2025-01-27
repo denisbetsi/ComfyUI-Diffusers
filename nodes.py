@@ -83,19 +83,68 @@ class DiffusersSchedulerLoader:
         }
 
     RETURN_TYPES = ("SCHEDULER",)
-
     FUNCTION = "load_scheduler"
-
     CATEGORY = "Diffusers"
 
     def load_scheduler(self, pipeline, scheduler_name):
-        scheduler = SCHEDULERS[scheduler_name].from_pretrained(
-            pretrained_model_name_or_path=pipeline.config['_name_or_path'],
-            torch_dtype=self.dtype,
-            cache_dir=self.tmp_dir,
-            subfolder='scheduler'
-        )
-        return (scheduler,)
+        print(f"[DEBUG] Pipeline type: {type(pipeline)}")
+        print(f"[DEBUG] Pipeline dir: {dir(pipeline)}")
+        
+        # Try to get model path in different ways
+        model_path = None
+        
+        if hasattr(pipeline, "config"):
+            print(f"[DEBUG] Pipeline config: {pipeline.config}")
+            if isinstance(pipeline.config, dict):
+                model_path = pipeline.config.get("_name_or_path")
+            elif hasattr(pipeline.config, "_name_or_path"):
+                model_path = pipeline.config._name_or_path
+                
+        if not model_path and hasattr(pipeline, "_name_or_path"):
+            model_path = pipeline._name_or_path
+            
+        if not model_path and hasattr(pipeline, "model_dir"):
+            model_path = pipeline.model_dir
+            
+        print(f"[DEBUG] Found model_path: {model_path}")
+
+        try:
+            if model_path:
+                print(f"[DEBUG] Loading scheduler from path: {model_path}")
+                scheduler = SCHEDULERS[scheduler_name].from_pretrained(
+                    pretrained_model_name_or_path=model_path,
+                    torch_dtype=self.dtype,
+                    cache_dir=self.tmp_dir,
+                    subfolder='scheduler'
+                )
+            else:
+                print("[DEBUG] No model path found, creating default scheduler")
+                # Create a default scheduler if we can't find the path
+                scheduler = SCHEDULERS[scheduler_name].from_config(
+                    {
+                        "num_train_timesteps": 1000,
+                        "beta_start": 0.00085,
+                        "beta_end": 0.012,
+                        "beta_schedule": "scaled_linear"
+                    },
+                    torch_dtype=self.dtype
+                )
+            return (scheduler,)
+            
+        except Exception as e:
+            print(f"[DEBUG] Error loading scheduler: {str(e)}")
+            print("[DEBUG] Falling back to default scheduler config")
+            # Fallback to default config if loading fails
+            scheduler = SCHEDULERS[scheduler_name].from_config(
+                {
+                    "num_train_timesteps": 1000,
+                    "beta_start": 0.00085,
+                    "beta_end": 0.012,
+                    "beta_schedule": "scaled_linear"
+                },
+                torch_dtype=self.dtype
+            )
+            return (scheduler,)
 
 class DiffusersModelMakeup:
     def __init__(self):
