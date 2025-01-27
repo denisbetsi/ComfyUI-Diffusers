@@ -39,7 +39,7 @@ class DiffusersPipelineLoader:
             torch_dtype=self.dtype,
             cache_dir=self.tmp_dir,
         )
-        return ((pipe, ckpt_cache_path), pipe.vae, pipe.scheduler)
+        return (pipe, pipe.vae, pipe.scheduler)
 
 class DiffusersVaeLoader:
     def __init__(self):
@@ -90,7 +90,7 @@ class DiffusersSchedulerLoader:
 
     def load_scheduler(self, pipeline, scheduler_name):
         scheduler = SCHEDULERS[scheduler_name].from_pretrained(
-            pretrained_model_name_or_path=pipeline[1],
+            pretrained_model_name_or_path=pipeline.config['_name_or_path'],
             torch_dtype=self.dtype,
             cache_dir=self.tmp_dir,
             subfolder='scheduler'
@@ -118,7 +118,6 @@ class DiffusersModelMakeup:
     CATEGORY = "Diffusers"
 
     def makeup_pipeline(self, pipeline, scheduler, autoencoder):
-        pipeline = pipeline[0]
         pipeline.vae = autoencoder
         pipeline.scheduler = scheduler
         pipeline.safety_checker = None if pipeline.safety_checker is None else lambda images, **kwargs: (images, [False])
