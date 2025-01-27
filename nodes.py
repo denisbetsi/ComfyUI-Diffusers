@@ -167,10 +167,20 @@ class DiffusersModelMakeup:
     CATEGORY = "Diffusers"
 
     def makeup_pipeline(self, pipeline, scheduler, autoencoder):
+        print(f"[DEBUG] Makeup pipeline type: {type(pipeline)}")
+        print(f"[DEBUG] Pipeline attributes: {dir(pipeline)}")
+        
         pipeline.vae = autoencoder
         pipeline.scheduler = scheduler
-        pipeline.safety_checker = None if pipeline.safety_checker is None else lambda images, **kwargs: (images, [False])
-        pipeline.enable_attention_slicing()
+        
+        # Only set safety_checker if the pipeline has that attribute
+        if hasattr(pipeline, 'safety_checker'):
+            pipeline.safety_checker = None if pipeline.safety_checker is None else lambda images, **kwargs: (images, [False])
+        
+        # Some pipelines might not have attention slicing
+        if hasattr(pipeline, 'enable_attention_slicing'):
+            pipeline.enable_attention_slicing()
+            
         pipeline = pipeline.to(self.torch_device)
         return (pipeline,)
 
